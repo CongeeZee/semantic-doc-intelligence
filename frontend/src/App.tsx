@@ -1,121 +1,61 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useEffect } from 'react'
+import { api } from './api/client'
+import type { Document } from './api/types'
+import { UploadZone } from './components/UploadZone'
+import { DocumentList } from './components/DocumentList'
+import { ChatPanel } from './components/ChatPanel'
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api.documents.list()
+      .then(setDocuments)
+      .finally(() => setLoading(false))
+  }, [])
+
+  function handleUploaded(doc: Document) {
+    setDocuments((prev) => [doc, ...prev])
+  }
+
+  function handleDeleted(id: string) {
+    setDocuments((prev) => prev.filter((d) => d.id !== id))
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4">
+        <h1 className="text-lg font-semibold text-slate-900">
+          📚 Semantic Doc Intelligence
+        </h1>
+        <p className="text-slate-400 text-sm">Upload documents, ask questions, get cited answers.</p>
+      </header>
 
-      <div className="ticks"></div>
+      {/* Main layout */}
+      <div className="flex flex-1 overflow-hidden">
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {/* Left sidebar — documents */}
+        <aside className="w-80 bg-white border-r border-slate-200 flex flex-col overflow-hidden">
+          <div className="p-4 border-b border-slate-100">
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">Documents</h2>
+            <UploadZone onUploaded={handleUploaded} />
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {loading ? (
+              <p className="text-slate-400 text-sm text-center py-6">Loading…</p>
+            ) : (
+              <DocumentList documents={documents} onDeleted={handleDeleted} />
+            )}
+          </div>
+        </aside>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+        {/* Right — chat */}
+        <main className="flex-1 flex flex-col p-6 overflow-hidden">
+          <ChatPanel />
+        </main>
+      </div>
+    </div>
   )
 }
-
-export default App
