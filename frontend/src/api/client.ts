@@ -17,6 +17,9 @@ export const api = {
     list: (): Promise<Document[]> =>
       request('/documents/'),
 
+    get: (id: string): Promise<Document> =>
+      request(`/documents/${id}`),
+
     upload: (file: File): Promise<Document> => {
       const form = new FormData()
       form.append('file', file)

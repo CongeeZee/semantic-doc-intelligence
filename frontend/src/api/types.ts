@@ -8,6 +8,7 @@ export interface Document {
 export interface Citation {
   index: number
   document_id: string
+  filename: string
   chunk_index: number
   score: number
   excerpt: string

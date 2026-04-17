@@ -1,9 +1,9 @@
 import os
 import uuid
 import aiofiles
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
-from app.models.database import get_db
+from app.models.database import get_db, SessionLocal
 from app.models.document import Document
 from app.ingestion.pipeline import ingest_document
 from app.config import settings
@@ -18,8 +18,21 @@ ALLOWED_TYPES = {
 }
 
 
+def _ingest_in_background(doc_id: str) -> None:
+    """Run ingestion with its own DB session so it outlives the request."""
+    db = SessionLocal()
+    try:
+        ingest_document(db, doc_id)
+    finally:
+        db.close()
+
+
 @router.post("/upload", status_code=201)
-async def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_document(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(status_code=415, detail=f"Unsupported file type: {file.content_type}")
 
@@ -42,18 +55,17 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
     db.add(doc)
     db.commit()
 
-    # Run ingestion synchronously for now (background task in next iteration)
-    ingest_document(db, str(doc_id))
+    # Return immediately; ingestion runs in the background
+    background_tasks.add_task(_ingest_in_background, str(doc_id))
 
-    db.refresh(doc)
-    return {"id": str(doc.id), "filename": doc.filename, "status": doc.status}
+    return {"id": str(doc.id), "filename": doc.filename, "status": doc.status, "created_at": doc.created_at.isoformat() if doc.created_at else None}
 
 
 @router.get("/")
 def list_documents(db: Session = Depends(get_db)):
     docs = db.query(Document).order_by(Document.created_at.desc()).all()
     return [
-        {"id": str(d.id), "filename": d.filename, "status": d.status, "created_at": d.created_at}
+        {"id": str(d.id), "filename": d.filename, "status": d.status, "created_at": d.created_at.isoformat() if d.created_at else None}
         for d in docs
     ]
 
@@ -63,7 +75,7 @@ def get_document(doc_id: str, db: Session = Depends(get_db)):
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    return {"id": str(doc.id), "filename": doc.filename, "status": doc.status, "created_at": doc.created_at}
+    return {"id": str(doc.id), "filename": doc.filename, "status": doc.status, "created_at": doc.created_at.isoformat() if doc.created_at else None}
 
 
 @router.delete("/{doc_id}", status_code=204)
